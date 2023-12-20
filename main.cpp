@@ -167,6 +167,18 @@ HRESULT MainWindow::CreateBitmapFromHandle(HANDLE ppmHandle, int width, int heig
     );
     return hr;
 }
+
+bool isUTF8(HANDLE ppmhandle) {
+    std::string line = "";
+    char bt = 'x';
+    DWORD bytesRead;
+    while (bt != '\n') {
+        ReadFile(ppmhandle, static_cast<LPVOID>(&bt), 1, &bytesRead, NULL);
+        if (bt != '\0') line += bt;
+    }
+    return line.size() == 3;
+}
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow)
 {
     MainWindow win;
@@ -177,9 +189,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
     if (args == NULL)
         return -9;
 
-    char fileLoc[256];
-    HRESULT hr = GetFullPathName(args[0], 256, (LPWSTR)fileLoc, NULL);//L"C:\\Users\\Pranav\\Documents\\Work\\ray-trace-weekend\\image.ppm";
-    //LPCWSTR fileLoc = L"D:\\Downloads\\test.ppm";
+    char fileLoc[256] = { 0 };
+    HRESULT hr = GetFullPathName(args[0], 256, (LPWSTR)fileLoc, NULL);
     DWORD bytesRead;
     
     if(FAILED(hr)) exit(-10);
@@ -199,8 +210,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
         CloseHandle(ppmhandle);
         return 0;
     }
+
     char readBuffer[256] = { 0 };
-    char str[256];
     BOOL bRead = ReadFile(
         ppmhandle,
         static_cast<LPVOID>(&readBuffer),
@@ -218,28 +229,70 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR pCmdLine, int nCmdShow
             err,
             MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
             (LPTSTR)&msg,
-            0,
+            7,
             NULL
         );
         MessageBoxW(NULL, msg, L"DisplayError", MB_OK);
         CloseHandle(ppmhandle);
         return 0;
     }
-    ReadFile(ppmhandle, static_cast<LPVOID>(&readBuffer), 28, &bytesRead, NULL);
-    std::string sizeV = "000";
-    sizeV[0] += readBuffer[1] - '0';
-    sizeV[1] += readBuffer[3] - '0';
-    sizeV[2] += readBuffer[5] - '0';
-    
-    std::string sizeY = "000";
-    sizeY[0] += readBuffer[9] - '0';
-    sizeY[1] += readBuffer[11] - '0';
-    sizeY[2] += readBuffer[13] - '0';
-    
-    int iSizeX = atoi(sizeV.c_str()), iSizeY = atoi(sizeY.c_str());
 
-    win.sizeX = iSizeX;
-    win.sizeY = iSizeY;
+    std::string line = "";
+    char bt = 'x';
+    while (bt != '\n') {
+        ReadFile(ppmhandle, static_cast<LPVOID>(&bt), 1, &bytesRead, NULL);
+        if (bt != '\0') line += bt;
+    }
+
+    for (int i = 0; i < line.size(); i++) {
+        if (line[i] == '0') OutputDebugStringA("0");
+        if (line[i] == '1') OutputDebugStringA("1");
+        if (line[i] == '2') OutputDebugStringA("2");
+        if (line[i] == '3') OutputDebugStringA("3");
+        if (line[i] == '4') OutputDebugStringA("4");
+        if (line[i] == '5') OutputDebugStringA("5");
+        if (line[i] == '6') OutputDebugStringA("6");
+        if (line[i] == '7') OutputDebugStringA("7");
+        if (line[i] == '8') OutputDebugStringA("8");
+        if (line[i] == '9') OutputDebugStringA("9");
+        if (line[i] == '\n') OutputDebugStringA("n\n");
+        else OutputDebugStringA("x");
+    }
+
+
+    int sizes[2] = { 0 };
+    std::string curr = ""; int nums = 0;
+
+    ReadFile(ppmhandle, static_cast<LPVOID>(&readBuffer), 10, &bytesRead, NULL);
+    
+    for (int i = 0; i < line.size(); i++) {
+        if (isdigit(line[i])) {
+            curr += line[i];
+            continue;
+        }
+        if (isDig(line[i]) == isDig(line[i + 1])) {
+            sizes[nums] = atoi(curr.c_str());
+            //OutputDebugStringA(curr.c_str());
+            //OutputDebugStringA("\n");
+            curr.clear();
+            nums++;
+            if (nums == 2) {
+                break;
+            }
+        }
+    }
+    //exit(0);
+    
+    bool bConsoleAlloc = AllocConsole();
+    if (!bConsoleAlloc) return -8;
+    AttachConsole(ATTACH_PARENT_PROCESS);
+    HANDLE stdOut;
+    stdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (stdOut == NULL || stdOut == INVALID_HANDLE_VALUE) return -1;
+
+
+    win.sizeX = sizes[0];
+    win.sizeY = sizes[1];
 
     if (!win.Create(L"Clippom", WS_OVERLAPPEDWINDOW, win.sizeX, win.sizeY))
     {
